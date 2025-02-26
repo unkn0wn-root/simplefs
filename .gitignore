@@ -1,0 +1,38 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+cmd/simplefs/simplefs
+
+*.test
+*.out
+go.work
+
+vendor/
+
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# SimpleFS specific
+# Ignore data directories created by the filesystem
+data/
+tmp/
+
+# Journal files
+*.journal
+*.log
+
+.versions/
+
+backups/
+*.bak
+
+build/
+
+.env
+*.config.json
