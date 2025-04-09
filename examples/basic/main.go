@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/unkn0wn-root/simplefs/fs"
+	fs "github.com/unkn0wn-root/simplefs"
 )
 
 func main() {
