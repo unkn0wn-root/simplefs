@@ -56,13 +56,11 @@ func NewSimpleFS(rootPath string, opts *Options) (*SimpleFS, error) {
 		opts = DefaultOptions()
 	}
 
-	// Validate root path
 	absRootPath, err := filepath.Abs(rootPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid root path: %w", err)
 	}
 
-	// Check if root path exists, if not create it
 	if _, err := os.Stat(absRootPath); os.IsNotExist(err) {
 		err = os.MkdirAll(absRootPath, 0755)
 		if err != nil {
@@ -78,9 +76,7 @@ func NewSimpleFS(rootPath string, opts *Options) (*SimpleFS, error) {
 		maxVersions: opts.MaxVersions,
 	}
 
-	// Setup journaling if enabled
 	if opts.EnableJournaling {
-		// Create journal directory
 		journalPath := filepath.Join(absRootPath, ".journal")
 		if _, err := os.Stat(journalPath); os.IsNotExist(err) {
 			err = os.MkdirAll(journalPath, 0755)
@@ -89,7 +85,6 @@ func NewSimpleFS(rootPath string, opts *Options) (*SimpleFS, error) {
 			}
 		}
 
-		// Initialize journal
 		journal, err := NewJournal(filepath.Join(journalPath, "fs.log"))
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize journal: %w", err)
@@ -97,9 +92,7 @@ func NewSimpleFS(rootPath string, opts *Options) (*SimpleFS, error) {
 		fs.journal = journal
 	}
 
-	// Setup versioning if enabled
 	if opts.EnableVersioning {
-		// Create versions directory
 		versionPath := filepath.Join(absRootPath, ".versions")
 		if _, err := os.Stat(versionPath); os.IsNotExist(err) {
 			err = os.MkdirAll(versionPath, 0755)
@@ -162,12 +155,11 @@ func (fs *SimpleFS) CreateDir(path string) error {
 		return err
 	}
 
-	// Lock the directory
 	dirLock := fs.getFileLock(filepath.Dir(fullPath))
 	dirLock.Lock()
 	defer dirLock.Unlock()
 
-	// Execute pre-hooks
+	// pre-hooks
 	ctx := &HookContext{
 		Operation: OpCreateDir,
 		Path:      path,
@@ -202,13 +194,11 @@ func (fs *SimpleFS) WriteFile(path string, data []byte) error {
 
 // WriteFileWithMode writes data to a file with specific permissions
 func (fs *SimpleFS) WriteFileWithMode(path string, data []byte, mode os.FileMode) error {
-	// Get full path
 	fullPath, err := fs.fullPath(path)
 	if err != nil {
 		return err
 	}
 
-	// Create parent directories if they don't exist
 	dir := filepath.Dir(fullPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create parent directories: %w", err)
@@ -251,7 +241,6 @@ func (fs *SimpleFS) WriteFileWithMode(path string, data []byte, mode os.FileMode
 		}
 	}
 
-	// Write the file
 	err = os.WriteFile(fullPath, data, mode)
 	if err != nil {
 		return err
@@ -267,7 +256,6 @@ func (fs *SimpleFS) ReadFile(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	// Lock the file for reading
 	fileLock := fs.getFileLock(fullPath)
 	fileLock.RLock()
 	defer fileLock.RUnlock()
@@ -368,12 +356,10 @@ func (fs *SimpleFS) DeleteFile(path string) error {
 		return errors.New("cannot delete directory with DeleteFile, use DeleteDir instead")
 	}
 
-	// Lock the file for writing
 	fileLock := fs.getFileLock(fullPath)
 	fileLock.Lock()
 	defer fileLock.Unlock()
 
-	// Lock the parent directory too
 	dirLock := fs.getFileLock(filepath.Dir(fullPath))
 	dirLock.Lock()
 	defer dirLock.Unlock()
@@ -386,7 +372,6 @@ func (fs *SimpleFS) DeleteFile(path string) error {
 		return err
 	}
 
-	// Version the file if enabled
 	if fs.versioning {
 		if err := fs.createVersion(path); err != nil {
 			return fmt.Errorf("failed to create version before deletion: %w", err)
@@ -466,7 +451,6 @@ func (fs *SimpleFS) CopyFile(src, dst string) error {
 		return err
 	}
 
-	// Lock both files
 	srcLock := fs.getFileLock(srcPath)
 	srcLock.RLock()
 	defer srcLock.RUnlock()
@@ -484,7 +468,6 @@ func (fs *SimpleFS) CopyFile(src, dst string) error {
 		return err
 	}
 
-	// Version the destination file if it exists
 	if fs.versioning && fs.FileExists(dst) {
 		if err := fs.createVersion(dst); err != nil {
 			return fmt.Errorf("failed to create version of destination: %w", err)
@@ -517,12 +500,10 @@ func (fs *SimpleFS) CopyFile(src, dst string) error {
 		return err
 	}
 
-	// Set permissions on destination file
 	if err = os.Chmod(dstPath, sourceInfo.Mode()); err != nil {
 		return err
 	}
 
-	// Copy extended attributes
 	attrs, err := fs.GetAllAttributes(src)
 	if err == nil && len(attrs) > 0 {
 		for k, v := range attrs {
@@ -545,7 +526,6 @@ func (fs *SimpleFS) MoveFile(src, dst string) error {
 		return err
 	}
 
-	// Lock both files and parent directories
 	srcLock := fs.getFileLock(srcPath)
 	srcLock.Lock()
 	defer srcLock.Unlock()
@@ -571,7 +551,6 @@ func (fs *SimpleFS) MoveFile(src, dst string) error {
 		return err
 	}
 
-	// Version the destination file if it exists
 	if fs.versioning && fs.FileExists(dst) {
 		if err := fs.createVersion(dst); err != nil {
 			return fmt.Errorf("failed to create version of destination before move: %w", err)
@@ -595,7 +574,6 @@ func (fs *SimpleFS) MoveFile(src, dst string) error {
 			return fmt.Errorf("failed to log move source deletion: %w", err)
 		}
 
-		// Read the file content to log in case move fails
 		data, err := fs.ReadFile(src)
 		if err != nil {
 			return fmt.Errorf("failed to read source file for move: %w", err)
@@ -612,12 +590,10 @@ func (fs *SimpleFS) MoveFile(src, dst string) error {
 		}
 	}
 
-	// Move the file
 	if err := os.Rename(srcPath, dstPath); err != nil {
 		return err
 	}
 
-	// Set attributes on the new file
 	if len(attrs) > 0 {
 		for k, v := range attrs {
 			fs.SetAttribute(dst, k, v)

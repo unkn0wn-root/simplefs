@@ -12,13 +12,11 @@ import (
 
 // SetAttribute sets an extended attribute on a file
 func (fs *SimpleFS) SetAttribute(path, key, value string) error {
-	// Validate the path
 	fullPath, err := fs.fullPath(path)
 	if err != nil {
 		return err
 	}
 
-	// Ensure the file exists
 	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
 		return fmt.Errorf("file does not exist: %s", path)
 	}
@@ -36,12 +34,10 @@ func (fs *SimpleFS) SetAttribute(path, key, value string) error {
 	hashedName := utils.HashString(path)
 	hashedPath := filepath.Join(attrDir, hashedName+".json")
 
-	// Lock the attributes file
 	attrLock := fs.getFileLock(hashedPath)
 	attrLock.Lock()
 	defer attrLock.Unlock()
 
-	// Execure hook
 	ctx := &HookContext{
 		Operation: OpSetAttribute,
 		Path:      path,
@@ -52,7 +48,6 @@ func (fs *SimpleFS) SetAttribute(path, key, value string) error {
 		return err
 	}
 
-	// Get current attributes
 	attrs := make(map[string]string)
 	if data, err := os.ReadFile(hashedPath); err == nil {
 		if err := json.Unmarshal(data, &attrs); err != nil {
@@ -68,7 +63,6 @@ func (fs *SimpleFS) SetAttribute(path, key, value string) error {
 		return fmt.Errorf("failed to marshal attributes: %w", err)
 	}
 
-	// Log entry
 	if fs.journal != nil {
 		if err := fs.journal.Log(JournalEntry{
 			Operation: "setattr",
@@ -141,7 +135,6 @@ func (fs *SimpleFS) GetAllAttributes(path string) (map[string]string, error) {
 		return make(map[string]string), nil
 	}
 
-	// Lock the attributes file for reading
 	attrLock := fs.getFileLock(hashedPath)
 	attrLock.RLock()
 	defer attrLock.RUnlock()
@@ -219,7 +212,6 @@ func (fs *SimpleFS) DeleteAttribute(path, key string) error {
 		return fs.executeHooks(HookTypePost, ctx)
 	}
 
-	// Write back to file
 	newData, err := json.MarshalIndent(attrs, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal attributes: %w", err)

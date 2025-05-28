@@ -22,7 +22,6 @@ var (
 func main() {
 	flag.Parse()
 
-	// Validate command and arguments
 	args := flag.Args()
 	if len(args) < 1 {
 		printUsage()
@@ -42,7 +41,6 @@ func main() {
 	}
 	defer fileSystem.Close()
 
-	// Execute command
 	command := args[0]
 	cmdArgs := args[1:]
 
@@ -222,8 +220,6 @@ func handleDelete(fileSystem *fs.SimpleFS, args []string) {
 	}
 
 	path := args[0]
-
-	// Check if it's a directory or file
 	isDir := fileSystem.IsDir(path)
 
 	var err error
@@ -527,9 +523,7 @@ func handleBackup(fileSystem *fs.SimpleFS, args []string) {
 
 	src, dst := args[0], args[1]
 
-	// Check if source is a directory or file
 	isDir := fileSystem.IsDir(src)
-
 	if isDir {
 		// Create the backup directory
 		err := os.MkdirAll(dst, 0755)
@@ -538,7 +532,6 @@ func handleBackup(fileSystem *fs.SimpleFS, args []string) {
 			os.Exit(1)
 		}
 
-		// List the directory
 		files, err := fileSystem.ListDir(src)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error listing directory: %v\n", err)
@@ -551,7 +544,6 @@ func handleBackup(fileSystem *fs.SimpleFS, args []string) {
 				continue // Skip subdirectories for simplicity
 			}
 
-			// Read the file
 			data, err := fileSystem.ReadFile(filepath.Join(src, file.Name))
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", file.Name, err)
@@ -570,21 +562,18 @@ func handleBackup(fileSystem *fs.SimpleFS, args []string) {
 
 		fmt.Printf("Backed up %d files from %s to %s\n", count, src, dst)
 	} else {
-		// Backup a single file
 		data, err := fileSystem.ReadFile(src)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
 			os.Exit(1)
 		}
 
-		// Create parent directories if needed
 		err = os.MkdirAll(filepath.Dir(dst), 0755)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating backup directory: %v\n", err)
 			os.Exit(1)
 		}
 
-		// Write the backup
 		err = os.WriteFile(dst, data, 0644)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing backup: %v\n", err)
