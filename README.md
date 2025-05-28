@@ -24,13 +24,13 @@ gosimplefs/
 │   ├── api.md            # API documentation
 │   └── advanced-usage.md # Advanced usage guides
 ├── examples/             # Example code
-├── attributes.go     # Extended attributes implementation
-├── fs.go             # Main file system implementation
-├── hooks.go          # Hooks system
-├── journal.go        # Journaling implementation
-├── locks.go          # Concurrency control
-├── path.go           # Path manipulation utilities
-├── versioning.go     # File versioning
+├── attributes.go         # Extended attributes implementation
+├── fs.go                 # Main file system implementation
+├── hooks.go              # Hooks system
+├── journal.go            # Journaling implementation
+├── locks.go              # Concurrency control
+├── path.go               # Path manipulation utilities
+├── versioning.go         # File versioning
 ├── internal/
 │   └── utils/            # Utility functions
 │       ├── hash.go       # Hash functions
