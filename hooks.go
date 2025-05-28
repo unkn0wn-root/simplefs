@@ -65,15 +65,12 @@ func (fs *SimpleFS) RegisterHook(op OperationType, typ HookType, hook HookFunc) 
 	fs.hooksGuard.Lock()
 	defer fs.hooksGuard.Unlock()
 
-	// Create the key
 	key := HookKey{Op: op, Typ: typ}
 
-	// Initialize the map if it's nil
 	if fs.hooks == nil {
 		fs.hooks = make(map[HookKey][]HookFunc)
 	}
 
-	// Append the hook to the list for this key
 	fs.hooks[key] = append(fs.hooks[key], hook)
 }
 
@@ -106,12 +103,10 @@ func (fs *SimpleFS) executeHooks(typ HookType, ctx *HookContext) error {
 	// Set filesystem reference in context
 	ctx.FS = fs
 
-	// Initialize custom data map if needed
 	if ctx.Custom == nil {
 		ctx.Custom = make(map[string]interface{})
 	}
 
-	// Get hooks for this operation and type
 	key := HookKey{Op: ctx.Operation, Typ: typ}
 	hooks, ok := fs.hooks[key]
 	if !ok {
@@ -119,7 +114,6 @@ func (fs *SimpleFS) executeHooks(typ HookType, ctx *HookContext) error {
 		return nil
 	}
 
-	// Execute all hooks
 	for _, hook := range hooks {
 		if err := hook(ctx); err != nil {
 			return err
@@ -128,8 +122,6 @@ func (fs *SimpleFS) executeHooks(typ HookType, ctx *HookContext) error {
 
 	return nil
 }
-
-// Some sample hook implementations
 
 // LoggingHook creates a hook that logs operations to a file
 func LoggingHook(logPath string) (HookFunc, error) {
@@ -140,10 +132,9 @@ func LoggingHook(logPath string) (HookFunc, error) {
 	}
 
 	// Close file when done
-	// Note: This means the file will remain open as long as the hook exists
+	// This means the file will remain open as long as the hook exists
 
 	return func(ctx *HookContext) error {
-		// Format log message
 		var message string
 		switch ctx.Operation {
 		case OpCreateDir:
@@ -180,10 +171,7 @@ func LoggingHook(logPath string) (HookFunc, error) {
 			message = string(ctx.Operation) + " " + ctx.Path
 		}
 
-		// Add timestamp
 		message = getNow().Format("2006-01-02 15:04:05") + " " + message + "\n"
-
-		// Write to log file
 		_, err := logFile.WriteString(message)
 		return err
 	}, nil
@@ -205,7 +193,6 @@ func ReadOnlyHook() HookFunc {
 
 // BackupHook creates a hook that backs up files before modification
 func BackupHook(backupDir string) (HookFunc, error) {
-	// Ensure backup directory exists
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return nil, err
 	}
@@ -219,16 +206,12 @@ func BackupHook(backupDir string) (HookFunc, error) {
 				return nil
 			}
 
-			// Read file content
 			data, err := ctx.FS.ReadFile(ctx.Path)
 			if err != nil {
 				return nil // Skip if can't read
 			}
 
-			// Create backup path
 			backupPath := filepath.Join(backupDir, filepath.Base(ctx.Path)+"."+getNow().Format("20060102-150405"))
-
-			// Write backup
 			return os.WriteFile(backupPath, data, 0644)
 		}
 

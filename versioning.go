@@ -35,7 +35,7 @@ func (fs *SimpleFS) createVersion(path string) error {
 		return fmt.Errorf("versioning is not enabled")
 	}
 
-	// Execute pre-hooks
+	// pre-hooks
 	ctx := &HookContext{
 		Operation: OpCreateVersion,
 		Path:      path,
@@ -44,13 +44,11 @@ func (fs *SimpleFS) createVersion(path string) error {
 		return err
 	}
 
-	// Check if file exists
 	fullPath, err := fs.fullPath(path)
 	if err != nil {
 		return err
 	}
 
-	// Get file info
 	fileInfo, err := os.Stat(fullPath)
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
@@ -61,19 +59,14 @@ func (fs *SimpleFS) createVersion(path string) error {
 		return fmt.Errorf("cannot version a directory")
 	}
 
-	// Read file content
 	data, err := fs.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Get attributes
 	attrs, _ := fs.GetAllAttributes(path)
-
 	// Create a unique ID for this version
 	versionID := uuid.New().String()
-
-	// Create version info
 	versionInfo := VersionInfo{
 		VersionID:  versionID,
 		Path:       path,
@@ -86,18 +79,15 @@ func (fs *SimpleFS) createVersion(path string) error {
 	hashedPath := utils.HashString(path)
 	versionDir := filepath.Join(fs.versionPath, hashedPath)
 
-	// Create version directory if it doesn't exist
 	if err := os.MkdirAll(versionDir, 0755); err != nil {
 		return fmt.Errorf("failed to create version directory: %w", err)
 	}
 
-	// Create version data file
 	dataPath := filepath.Join(versionDir, versionID+".data")
 	if err := os.WriteFile(dataPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write version data: %w", err)
 	}
 
-	// Create version metadata file
 	metaPath := filepath.Join(versionDir, versionID+".json")
 	metaData, err := json.MarshalIndent(versionInfo, "", "  ")
 	if err != nil {
@@ -115,7 +105,6 @@ func (fs *SimpleFS) createVersion(path string) error {
 		}
 	}
 
-	// Execute post-hooks
 	return fs.executeHooks(HookTypePost, ctx)
 }
 
@@ -125,7 +114,7 @@ func (fs *SimpleFS) ListVersions(path string) (*VersionListing, error) {
 		return nil, fmt.Errorf("versioning is not enabled")
 	}
 
-	// Execute pre-hooks
+	// pre-hooks
 	ctx := &HookContext{
 		Operation: OpListVersions,
 		Path:      path,
@@ -138,7 +127,6 @@ func (fs *SimpleFS) ListVersions(path string) (*VersionListing, error) {
 	hashedPath := utils.HashString(path)
 	versionDir := filepath.Join(fs.versionPath, hashedPath)
 
-	// Check if version directory exists
 	if _, err := os.Stat(versionDir); os.IsNotExist(err) {
 		// No versions found
 		return &VersionListing{
@@ -147,13 +135,11 @@ func (fs *SimpleFS) ListVersions(path string) (*VersionListing, error) {
 		}, nil
 	}
 
-	// Read the directory
 	entries, err := os.ReadDir(versionDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read version directory: %w", err)
 	}
 
-	// Collect version infos
 	versions := make([]VersionInfo, 0)
 	for _, entry := range entries {
 		// Only process metadata files
@@ -161,14 +147,12 @@ func (fs *SimpleFS) ListVersions(path string) (*VersionListing, error) {
 			continue
 		}
 
-		// Read metadata file
 		metaPath := filepath.Join(versionDir, entry.Name())
 		metaData, err := os.ReadFile(metaPath)
 		if err != nil {
 			continue // Skip if can't read
 		}
 
-		// Parse metadata
 		var version VersionInfo
 		if err := json.Unmarshal(metaData, &version); err != nil {
 			continue // Skip if can't parse
@@ -182,13 +166,11 @@ func (fs *SimpleFS) ListVersions(path string) (*VersionListing, error) {
 		return versions[i].CreatedAt.After(versions[j].CreatedAt)
 	})
 
-	// Create listing
 	listing := &VersionListing{
 		Path:     path,
 		Versions: versions,
 	}
 
-	// Execute post-hooks
 	if err := fs.executeHooks(HookTypePost, ctx); err != nil {
 		return nil, err
 	}
@@ -202,7 +184,6 @@ func (fs *SimpleFS) GetVersion(path, versionID string) ([]byte, *VersionInfo, er
 		return nil, nil, fmt.Errorf("versioning is not enabled")
 	}
 
-	// Execute pre-hooks
 	ctx := &HookContext{
 		Operation: OpGetVersion,
 		Path:      path,
@@ -211,36 +192,30 @@ func (fs *SimpleFS) GetVersion(path, versionID string) ([]byte, *VersionInfo, er
 		return nil, nil, err
 	}
 
-	// Hash the path to find the version directory
 	hashedPath := utils.HashString(path)
 	versionDir := filepath.Join(fs.versionPath, hashedPath)
 
-	// Check if metadata file exists
 	metaPath := filepath.Join(versionDir, versionID+".json")
 	if _, err := os.Stat(metaPath); os.IsNotExist(err) {
 		return nil, nil, fmt.Errorf("version not found")
 	}
 
-	// Read metadata file
 	metaData, err := os.ReadFile(metaPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read version metadata: %w", err)
 	}
 
-	// Parse metadata
 	var version VersionInfo
 	if err := json.Unmarshal(metaData, &version); err != nil {
 		return nil, nil, fmt.Errorf("failed to parse version metadata: %w", err)
 	}
 
-	// Read data file
 	dataPath := filepath.Join(versionDir, versionID+".data")
 	data, err := os.ReadFile(dataPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read version data: %w", err)
 	}
 
-	// Execute post-hooks
 	if err := fs.executeHooks(HookTypePost, ctx); err != nil {
 		return nil, nil, err
 	}
@@ -254,13 +229,11 @@ func (fs *SimpleFS) RestoreVersion(path, versionID string) error {
 		return fmt.Errorf("versioning is not enabled")
 	}
 
-	// Get version data
 	data, version, err := fs.GetVersion(path, versionID)
 	if err != nil {
 		return fmt.Errorf("failed to get version: %w", err)
 	}
 
-	// Create a new version of the current file if it exists
 	if fs.FileExists(path) {
 		if err := fs.createVersion(path); err != nil {
 			return fmt.Errorf("failed to create version of current file: %w", err)
@@ -290,22 +263,18 @@ func (fs *SimpleFS) DeleteVersion(path, versionID string) error {
 		return fmt.Errorf("versioning is not enabled")
 	}
 
-	// Hash the path to find the version directory
 	hashedPath := utils.HashString(path)
 	versionDir := filepath.Join(fs.versionPath, hashedPath)
 
-	// Check if metadata file exists
 	metaPath := filepath.Join(versionDir, versionID+".json")
 	if _, err := os.Stat(metaPath); os.IsNotExist(err) {
 		return fmt.Errorf("version not found")
 	}
 
-	// Delete metadata file
 	if err := os.Remove(metaPath); err != nil {
 		return fmt.Errorf("failed to delete version metadata: %w", err)
 	}
 
-	// Delete data file
 	dataPath := filepath.Join(versionDir, versionID+".data")
 	if err := os.Remove(dataPath); err != nil {
 		return fmt.Errorf("failed to delete version data: %w", err)
@@ -329,8 +298,6 @@ func (fs *SimpleFS) pruneVersions(path string) error {
 
 	// Determine how many versions to delete
 	toDelete := len(listing.Versions) - fs.maxVersions
-
-	// Delete oldest versions
 	for i := len(listing.Versions) - 1; i >= len(listing.Versions)-toDelete; i-- {
 		version := listing.Versions[i]
 		if err := fs.DeleteVersion(path, version.VersionID); err != nil {
@@ -347,29 +314,24 @@ func (fs *SimpleFS) SetVersionDescription(path, versionID, description string) e
 		return fmt.Errorf("versioning is not enabled")
 	}
 
-	// Hash the path to find the version directory
 	hashedPath := utils.HashString(path)
 	versionDir := filepath.Join(fs.versionPath, hashedPath)
 
-	// Check if metadata file exists
 	metaPath := filepath.Join(versionDir, versionID+".json")
 	if _, err := os.Stat(metaPath); os.IsNotExist(err) {
 		return fmt.Errorf("version not found")
 	}
 
-	// Read metadata file
 	metaData, err := os.ReadFile(metaPath)
 	if err != nil {
 		return fmt.Errorf("failed to read version metadata: %w", err)
 	}
 
-	// Parse metadata
 	var version VersionInfo
 	if err := json.Unmarshal(metaData, &version); err != nil {
 		return fmt.Errorf("failed to parse version metadata: %w", err)
 	}
 
-	// Update description
 	version.Description = description
 
 	// Write back metadata

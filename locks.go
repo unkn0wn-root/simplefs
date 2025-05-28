@@ -55,7 +55,6 @@ func (lm *ExplicitLockManager) AcquireLock(path, owner string, lockType LockType
 
 		// If there's a read lock and we want a read lock, that's fine
 		if existing.Type == ReadLock && lockType == ReadLock {
-			// Create a new read lock
 			lock := &LockInfo{
 				Path:      path,
 				Type:      ReadLock,
@@ -73,7 +72,6 @@ func (lm *ExplicitLockManager) AcquireLock(path, owner string, lockType LockType
 		}
 	}
 
-	// No existing lock or compatible lock, create a new one
 	lock := &LockInfo{
 		Path:      path,
 		Type:      lockType,
@@ -94,10 +92,8 @@ func (lm *ExplicitLockManager) TryAcquireLock(path, owner string, lockType LockT
 
 // WaitForLock waits for a lock to become available
 func (lm *ExplicitLockManager) WaitForLock(path string, waitTime time.Duration) bool {
-	// Create a channel for this waiter
 	waiter := make(chan struct{})
 
-	// Add to waiters
 	lm.waiterMu.Lock()
 	if _, exists := lm.lockWaiters[path]; !exists {
 		lm.lockWaiters[path] = make([]chan struct{}, 0)
@@ -110,7 +106,6 @@ func (lm *ExplicitLockManager) WaitForLock(path string, waitTime time.Duration) 
 	case <-waiter:
 		return true
 	case <-time.After(waitTime):
-		// Clean up waiter
 		lm.waiterMu.Lock()
 		if waiters, exists := lm.lockWaiters[path]; exists {
 			for i, w := range waiters {
@@ -130,21 +125,17 @@ func (lm *ExplicitLockManager) ReleaseLock(path, owner string) error {
 	lm.mu.Lock()
 	defer lm.mu.Unlock()
 
-	// Check if the lock exists
 	lock, exists := lm.locks[path]
 	if !exists {
 		return fmt.Errorf("no lock found for path %s", path)
 	}
 
-	// Check if the owner matches
 	if lock.Owner != owner {
 		return fmt.Errorf("lock is owned by %s, not %s", lock.Owner, owner)
 	}
 
-	// Release the lock
 	delete(lm.locks, path)
 
-	// Notify any waiters
 	lm.waiterMu.Lock()
 	defer lm.waiterMu.Unlock()
 
@@ -165,12 +156,10 @@ func (lm *ExplicitLockManager) CleanupExpiredLocks() {
 
 	now := time.Now()
 	for path, lock := range lm.locks {
-		// Check if the lock has expired
 		if lock.Timeout > 0 && now.Sub(lock.CreatedAt) > lock.Timeout {
 			// Lock has expired, remove it
 			delete(lm.locks, path)
 
-			// Notify any waiters
 			lm.waiterMu.Lock()
 			if waiters, exists := lm.lockWaiters[path]; exists {
 				for _, waiter := range waiters {

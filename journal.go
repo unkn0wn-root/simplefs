@@ -50,16 +50,12 @@ func (j *Journal) Log(entry JournalEntry) error {
 		return fmt.Errorf("failed to marshal journal entry: %w", err)
 	}
 
-	// Add newline for readability
 	data = append(data, '\n')
-
-	// Write to the journal file
 	_, err = j.file.Write(data)
 	if err != nil {
 		return fmt.Errorf("failed to write to journal: %w", err)
 	}
 
-	// Ensure data is written to disk
 	return j.file.Sync()
 }
 
@@ -103,7 +99,6 @@ func (j *Journal) Recover(fs *SimpleFS) error {
 	// Temporary map to track the latest state of each file
 	fileState := make(map[string]JournalEntry)
 
-	// Read all entries and update the state map
 	scanner := json.NewDecoder(file)
 	entryCount := 0
 	for {
@@ -123,7 +118,6 @@ func (j *Journal) Recover(fs *SimpleFS) error {
 
 	fmt.Printf("Read %d journal entries, %d unique paths\n", entryCount, len(fileState))
 
-	// Replay operations in the correct order
 	for path, entry := range fileState {
 		fmt.Printf("Recovering: %s (operation: %s)\n", path, entry.Operation)
 
@@ -152,12 +146,10 @@ func (j *Journal) Recover(fs *SimpleFS) error {
 			// If the path is in the delete list, delete it
 			if entry.IsDir() {
 				if err := fs.DeleteDir(path); err != nil {
-					// Not a critical error during recovery
 					fmt.Printf("Note: Could not delete directory %s: %v\n", path, err)
 				}
 			} else {
 				if err := fs.DeleteFile(path); err != nil {
-					// Not a critical error during recovery
 					fmt.Printf("Note: Could not delete file %s: %v\n", path, err)
 				}
 			}
@@ -192,13 +184,11 @@ func (j *Journal) Rotate() error {
 		j.file = nil
 	}
 
-	// Rename the current journal file
 	backupPath := j.path + "." + time.Now().Format("20060102-150405")
 	if err := os.Rename(j.path, backupPath); err != nil {
 		return fmt.Errorf("failed to rename journal file: %w", err)
 	}
 
-	// Create a new journal file
 	file, err := os.OpenFile(j.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to create new journal file: %w", err)
@@ -213,18 +203,15 @@ func (j *Journal) Truncate() error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	// Close the current file
 	if j.file != nil {
 		j.file.Close()
 		j.file = nil
 	}
 
-	// Truncate the file
 	if err := os.Truncate(j.path, 0); err != nil {
 		return fmt.Errorf("failed to truncate journal file: %w", err)
 	}
 
-	// Reopen the file
 	file, err := os.OpenFile(j.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to reopen journal file after truncation: %w", err)
